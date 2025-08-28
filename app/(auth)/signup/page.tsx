@@ -1,9 +1,51 @@
-export const metadata = {
-  title: "Sign Up - Simple",
-  description: "Page description",
-};
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function SignUp() {
+  const router = useRouter();
+  const fetchProfile = useAuthStore((s) => s.fetchProfile);
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(
+        "https://maiden-backend.onrender.com/api/auth/register/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.detail || "Registration failed");
+        setLoading(false);
+        return;
+      }
+
+      // After successful registration, fetch profile and redirect
+      await fetchProfile();
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="mb-10">
@@ -11,7 +53,7 @@ export default function SignUp() {
       </div>
 
       {/* Form */}
-      <form>
+      <form onSubmit={handleRegister}>
         <div className="space-y-4">
           <div>
             <label
@@ -25,6 +67,8 @@ export default function SignUp() {
               className="form-input w-full py-2"
               type="text"
               placeholder="Corey Barker"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
             />
           </div>
@@ -40,6 +84,8 @@ export default function SignUp() {
               className="form-input w-full py-2"
               type="email"
               placeholder="corybarker@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -56,13 +102,22 @@ export default function SignUp() {
               type="password"
               autoComplete="on"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
         </div>
+
+        {error && <p className="text-red-500 mt-2">{error}</p>}
+
         <div className="mt-6 space-y-3">
-          <button className="btn w-full bg-linear-to-t from-blue-600 to-blue-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-sm hover:bg-[length:100%_150%]">
-            Register
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn w-full bg-linear-to-t from-blue-600 to-blue-500 text-white shadow-sm hover:from-blue-700 hover:to-blue-600 disabled:opacity-50"
+          >
+            {loading ? "Registering..." : "Register"}
           </button>
         </div>
       </form>
