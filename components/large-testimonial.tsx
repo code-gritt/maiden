@@ -26,20 +26,21 @@ export default function LargeTestimonial() {
                 src={TestimonialImg}
                 width={48}
                 height={48}
-                alt="Large testimonial"
+                alt="mAIden testimonial"
               />
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              “Simple has simplified my life in more ways than one. From
-              managing my sites to{" "}
-              <em className="italic text-gray-500">keeping track of tasks</em>,
-              it's become my go-to tool for everything.”
+              “mAIden completely changed how I work with research papers and
+              reports. Instead of scrolling through hundreds of pages, I just{" "}
+              <em className="italic text-gray-500">ask questions</em> and get
+              instant answers. It feels like having an AI research assistant
+              24/7.”
             </p>
             <div className="text-sm font-medium text-gray-500">
-              <span className="text-gray-700">Mary Sullivan</span>{" "}
+              <span className="text-gray-700">Alex Johnson</span>{" "}
               <span className="text-gray-400">/</span>{" "}
               <a className="text-blue-500" href="#0">
-                CTO at Microsoft
+                Product Manager at Notion
               </a>
             </div>
           </div>

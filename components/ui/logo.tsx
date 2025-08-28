@@ -2,7 +2,11 @@ import Link from "next/link";
 
 export default function Logo() {
   return (
-    <Link href="/" className="inline-flex" aria-label="Cruip">
+    <Link
+      href="/"
+      className="inline-flex items-center space-x-2"
+      aria-label="mAIden"
+    >
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">
         <path
           className="fill-blue-500"
@@ -17,6 +21,9 @@ export default function Logo() {
           clipRule="evenodd"
         />
       </svg>
+      <span className="text-2xl font-extrabold tracking-tight text-blue-600">
+        m<span className="text-gray-900">AI</span>den
+      </span>
     </Link>
   );
 }

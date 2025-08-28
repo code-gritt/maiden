@@ -31,8 +31,13 @@ export default function Cta() {
           </div>
           <div className="px-4 py-12 md:px-12 md:py-20">
             <h2 className="mb-6 border-y text-3xl font-bold text-gray-200 [border-image:linear-gradient(to_right,transparent,--theme(--color-slate-700/.7),transparent)1] md:mb-12 md:text-4xl">
-              Create your next project with Simple
+              Chat with your PDFs using{" "}
+              <span className="text-blue-400">mAIden</span>
             </h2>
+            <p className="mx-auto mb-8 max-w-2xl text-lg text-gray-400">
+              Upload, ask, and get instant answers powered by Google Gemini.
+              Save, export, and download your conversations anytime.
+            </p>
             <div className="mx-auto max-w-xs sm:flex sm:max-w-none sm:justify-center">
               <a
                 className="btn group mb-4 w-full bg-linear-to-t from-blue-600 to-blue-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-sm hover:bg-[length:100%_150%] sm:mb-0 sm:w-auto"

@@ -112,6 +112,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 CORS_ALLOWED_ORIGINS = [
     "https://maiden-backend.onrender.com",
+    "https://maiden-kappa.vercel.app",
     "http://localhost:3000",
 ]
 

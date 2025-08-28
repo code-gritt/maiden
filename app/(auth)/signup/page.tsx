@@ -46,21 +46,6 @@ export default function SignUp() {
           <div>
             <label
               className="mb-1 block text-sm font-medium text-gray-700"
-              htmlFor="phone"
-            >
-              Phone
-            </label>
-            <input
-              id="phone"
-              className="form-input w-full py-2"
-              type="text"
-              placeholder="(+750) 932-8907"
-              required
-            />
-          </div>
-          <div>
-            <label
-              className="mb-1 block text-sm font-medium text-gray-700"
               htmlFor="password"
             >
               Password
@@ -78,10 +63,6 @@ export default function SignUp() {
         <div className="mt-6 space-y-3">
           <button className="btn w-full bg-linear-to-t from-blue-600 to-blue-500 bg-[length:100%_100%] bg-[bottom] text-white shadow-sm hover:bg-[length:100%_150%]">
             Register
-          </button>
-          <div className="text-center text-sm italic text-gray-400">Or</div>
-          <button className="btn w-full bg-linear-to-t from-gray-900 to-gray-700 bg-[length:100%_100%] bg-[bottom] text-white shadow-sm hover:bg-[length:100%_150%]">
-            Continue with GitHub
           </button>
         </div>
       </form>
