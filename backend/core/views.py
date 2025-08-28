@@ -64,3 +64,26 @@ class LogoutView(APIView):
             response.delete_cookie('session_token')
             return response
         return Response({"message": "No session found"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserView(APIView):
+    def get(self, request):
+        print("User fetch attempt with cookies:", request.COOKIES)
+        session_token = request.COOKIES.get('session_token')
+        if not session_token:
+            print("No session token provided")
+            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            session = Session.objects.get(
+                token=session_token, expires_at__gt=datetime.now())
+            user = session.user
+            print("User found:", user.username)
+            return Response({
+                "username": user.username,
+                "email": user.email,
+                "credits": user.credits
+            }, status=status.HTTP_200_OK)
+        except Session.DoesNotExist:
+            print("Invalid or expired session token:", session_token)
+            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
