@@ -168,7 +168,9 @@ SECURE_SSL_REDIRECT = not DEBUG
 # --------------------------------------
 # GOOGLE OAUTH SETTINGS
 # --------------------------------------
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv(
+    "GOOGLE_OAUTH_CLIENT_ID", "956326249480-h0aqid5tklb077n2kk8gsbm8arpjod00.apps.googleusercontent.com")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv(
+    "GOOGLE_OAUTH_CLIENT_SECRET", "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")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
 SOCIAL_AUTH_USER_MODEL = "core.User"
