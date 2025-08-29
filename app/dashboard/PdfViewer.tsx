@@ -30,7 +30,7 @@ export default function PdfViewer({ file }: { file: string }) {
           Previous
         </button>
         <p>
-          Page {pageNumber} of {numPages}
+          Pages {pageNumber} of {numPages}
         </p>
         <button
           onClick={() => setPageNumber((p) => Math.min(p + 1, numPages))}
