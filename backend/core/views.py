@@ -154,21 +154,10 @@ class PdfUploadView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        session_token = request.COOKIES.get("session_token")
-        if not session_token:
-            logger.warning("PDF upload attempted without session token")
-            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+        user, error_response = get_authenticated_user(request)
+        if error_response:
+            return error_response
 
-        try:
-            session = Session.objects.get(
-                token=session_token, expires_at__gt=datetime.now())
-            user = session.user
-        except Session.DoesNotExist:
-            logger.warning(
-                "Invalid or expired session token: %s", session_token)
-            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Check PDF limit (5 for free tier)
         pdf_count = Pdf.objects.filter(user=user).count()
         if pdf_count >= 5 and not user.subscription:
             logger.warning("User %s exceeded free tier PDF limit", user.id)
@@ -183,14 +172,14 @@ class PdfUploadView(APIView):
             logger.error("Invalid file type for upload: %s", file.name)
             return Response({"message": "Only PDF files are allowed"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate file size (10 MB = 10 * 1024 * 1024 bytes)
         if file.size > 10 * 1024 * 1024:
             logger.error("File too large: %s bytes", file.size)
             return Response({"message": "File size exceeds 10 MB limit"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Simulate file storage (e.g., save to staticfiles or cloud storage)
-        # For simplicity, store file name and size; in production, use cloud storage
-        file_url = f"/upload/{uuid.uuid4()}_{file.name}"
+        # Save file to storage
+        file_name = f"uploads/{uuid.uuid4()}_{file.name}"
+        file_path = default_storage.save(file_name, file)
+        file_url = default_storage.url(file_path)
         pdf = Pdf(
             user=user,
             file_name=file.name,

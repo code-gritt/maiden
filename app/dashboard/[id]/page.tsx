@@ -2,19 +2,14 @@
 
 import React, { useState, useEffect, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
-import dynamic from "next/dynamic";
-import DashboardLayout from "../DashboardLayout";
 import { useAuthStore } from "@/store/useAuthStore";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/esm/Page/AnnotationLayer.css";
+import "react-pdf/dist/esm/Page/TextLayer.css";
+import DashboardLayout from "../DashboardLayout";
 
-// Dynamically import PdfViewer to prevent SSR issues
-const PDFViewer = dynamic(() => import("../PdfViewer"), { ssr: false });
-
-interface ChatMessage {
-  id: string;
-  content: string;
-  is_user_message: boolean;
-  created_at: string;
-}
+// Set up pdfjs worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 interface Pdf {
   id: string;
@@ -24,40 +19,62 @@ interface Pdf {
   chat_messages: ChatMessage[];
 }
 
-const PdfViewPage: React.FC = () => {
+interface ChatMessage {
+  id: string;
+  content: string;
+  is_user_message: boolean;
+  created_at: string;
+}
+
+const PdfViewPage = () => {
   const { user, fetchUser } = useAuthStore();
   const router = useRouter();
   const { id } = useParams();
-
   const [pdf, setPdf] = useState<Pdf | null>(null);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [message, setMessage] = useState<string>("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) {
       fetchUser().then(() => {
-        if (!useAuthStore.getState().user) router.push("/signin");
-        else fetchPdf();
+        if (!useAuthStore.getState().user) {
+          router.push("/signin");
+        } else {
+          fetchPdf();
+        }
       });
-    } else fetchPdf();
+    } else {
+      fetchPdf();
+    }
   }, [user, fetchUser, router, id]);
 
   const fetchPdf = async () => {
     try {
-      const res = await fetch(
+      const response = await fetch(
         `https://maiden-backend.onrender.com/api/auth/pdf/${id}/`,
-        { credentials: "include" }
+        {
+          method: "GET",
+          credentials: "include",
+        }
       );
-      if (!res.ok) throw new Error("Failed to fetch PDF");
-      const data = await res.json();
+      if (!response.ok) {
+        throw new Error("Failed to fetch PDF");
+      }
+      const data = await response.json();
       setPdf(data);
       setChatMessages(data.chat_messages || []);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch PDF error:", err);
       setError("Failed to load PDF");
     }
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
   };
 
   const handleChatSubmit = async (e: FormEvent) => {
@@ -68,7 +85,7 @@ const PdfViewPage: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch(
+      const response = await fetch(
         `https://maiden-backend.onrender.com/api/auth/pdf/${id}/chat/`,
         {
           method: "POST",
@@ -77,17 +94,17 @@ const PdfViewPage: React.FC = () => {
           body: JSON.stringify({ message }),
         }
       );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 403) router.push("/pricing");
-        else throw new Error(data.message || "Chat failed");
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 403) {
+          router.push("/pricing");
+          return;
+        }
+        throw new Error(data.message || "Failed to send message");
       }
-
-      setChatMessages((prev) => [...prev, data.user_message, data.ai_response]);
+      setChatMessages([...chatMessages, data.user_message, data.ai_response]);
       setMessage("");
-      fetchUser(); // refresh credits
+      useAuthStore.getState().fetchUser(); // Update credits
     } catch (err: any) {
       setError(err.message || "Chat failed");
     } finally {
@@ -95,23 +112,54 @@ const PdfViewPage: React.FC = () => {
     }
   };
 
-  if (!user || !pdf) return null;
+  if (!user || !pdf) {
+    return null;
+  }
 
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* PDF Viewer */}
+        {/* Left Column: PDF Viewer */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-4">{pdf.file_name}</h2>
-          <PDFViewer fileUrl={pdf.file_url} />
+          <div className="overflow-y-auto max-h-[80vh]">
+            <Document
+              file={pdf.file_url}
+              onLoadSuccess={onDocumentLoadSuccess}
+              className="flex justify-center"
+            >
+              <Page pageNumber={pageNumber} />
+            </Document>
+          </div>
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
+              disabled={pageNumber <= 1}
+              className="btn bg-blue-600 text-white disabled:bg-gray-300"
+            >
+              Previous
+            </button>
+            <p>
+              Page {pageNumber} of {numPages}
+            </p>
+            <button
+              onClick={() =>
+                setPageNumber((prev) => Math.min(prev + 1, numPages))
+              }
+              disabled={pageNumber >= numPages}
+              className="btn bg-blue-600 text-white disabled:bg-gray-300"
+            >
+              Next
+            </button>
+          </div>
           {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
 
-        {/* Chat Section */}
+        {/* Right Column: Chat Interface */}
         <div className="bg-white shadow-md rounded-lg p-4 flex flex-col">
           <h2 className="text-xl font-semibold mb-4">Chat with PDF</h2>
           <div className="flex-1 overflow-y-auto max-h-[70vh] mb-4">
-            {chatMessages.length ? (
+            {chatMessages.length > 0 ? (
               chatMessages.map((msg) => (
                 <div
                   key={msg.id}
@@ -131,13 +179,12 @@ const PdfViewPage: React.FC = () => {
               <p className="text-gray-500">Start chatting about your PDF!</p>
             )}
           </div>
-
           <form onSubmit={handleChatSubmit} className="flex gap-2">
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask a question..."
+              placeholder="Ask a question about the PDF..."
               className="form-input flex-1 py-2"
               disabled={loading}
             />
@@ -149,7 +196,6 @@ const PdfViewPage: React.FC = () => {
               {loading ? "Sending..." : "Send"}
             </button>
           </form>
-
           <p className="text-sm text-gray-500 mt-2">
             {user.credits} credits remaining (2 credits per message)
           </p>
