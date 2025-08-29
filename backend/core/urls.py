@@ -8,6 +8,8 @@ from .views import (
     google_callback,
     PdfUploadView,
     PdfListView,
+    PdfDetailView,
+    ChatView
 )
 
 urlpatterns = [
@@ -19,4 +21,6 @@ urlpatterns = [
     path('google/callback/', google_callback, name='google_callback'),
     path('pdf/upload/', PdfUploadView.as_view(), name='pdf_upload'),
     path('pdf/list/', PdfListView.as_view(), name='pdf_list'),
+    path('pdf/<uuid:pdf_id>/', PdfDetailView.as_view(), name='pdf_detail'),
+    path('pdf/<uuid:pdf_id>/chat/', ChatView.as_view(), name='pdf_chat'),
 ]

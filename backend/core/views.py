@@ -4,14 +4,17 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, PdfSerializer
-from .models import Session, User, Pdf
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, PdfSerializer, ChatMessageSerializer
+from .models import Session, User, Pdf, ChatMessage
 import uuid
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import login
 from social_django.utils import psa
 import logging
+import requests
+import PyPDF2
+from django.core.files.storage import default_storage
 
 logger = logging.getLogger(__name__)
 
@@ -224,3 +227,134 @@ class PdfListView(APIView):
         pdfs = Pdf.objects.filter(user=user).order_by('-uploaded_at')
         serializer = PdfSerializer(pdfs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PdfDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pdf_id):
+        session_token = request.COOKIES.get("session_token")
+        if not session_token:
+            logger.warning("PDF detail fetch attempted without session token")
+            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            session = Session.objects.get(
+                token=session_token, expires_at__gt=datetime.now())
+            user = session.user
+        except Session.DoesNotExist:
+            logger.warning(
+                "Invalid or expired session token: %s", session_token)
+            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            pdf = Pdf.objects.get(id=pdf_id, user=user)
+            serializer = PdfSerializer(pdf)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Pdf.DoesNotExist:
+            logger.warning("PDF %s not found for user %s", pdf_id, user.id)
+            return Response({"message": "PDF not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ChatView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, pdf_id):
+        session_token = request.COOKIES.get("session_token")
+        if not session_token:
+            logger.warning("Chat attempt without session token")
+            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            session = Session.objects.get(
+                token=session_token, expires_at__gt=datetime.now())
+            user = session.user
+        except Session.DoesNotExist:
+            logger.warning(
+                "Invalid or expired session token: %s", session_token)
+            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            pdf = Pdf.objects.get(id=pdf_id, user=user)
+        except Pdf.DoesNotExist:
+            logger.warning("PDF %s not found for user %s", pdf_id, user.id)
+            return Response({"message": "PDF not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check credits
+        if user.credits < 2:
+            logger.warning("User %s has insufficient credits: %s",
+                           user.id, user.credits)
+            return Response({"message": "Insufficient credits. Upgrade to Pro."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Get user message
+        user_message = request.data.get("message")
+        if not user_message:
+            logger.error("No message provided in chat request")
+            return Response({"message": "No message provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract PDF text (assumes file is accessible via default_storage)
+        try:
+            file_path = default_storage.path(pdf.file_url.lstrip('/'))
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_text = ""
+                for page in pdf_reader.pages:
+                    pdf_text += page.extract_text() or ""
+        except Exception as e:
+            logger.error("Failed to extract PDF text: %s", str(e))
+            return Response({"message": "Failed to process PDF"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Call Gemini API
+        try:
+            gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [{
+                    "parts": [{
+                        "text": f"Context: {pdf_text}\n\nUser question: {user_message}"
+                    }]
+                }]
+            }
+            response = requests.post(
+                f"{gemini_url}?key={settings.GOOGLE_GEMINI_API_KEY}",
+                json=payload,
+                headers=headers
+            )
+            response.raise_for_status()
+            ai_response = response.json(
+            )['candidates'][0]['content']['parts'][0]['text']
+        except Exception as e:
+            logger.error("Gemini API error: %s", str(e))
+            return Response({"message": "Failed to generate response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Deduct credits
+        user.credits -= 2
+        user.save()
+        logger.info("Deducted 2 credits for user %s, remaining: %s",
+                    user.id, user.credits)
+
+        # Save messages
+        user_msg = ChatMessage(
+            pdf=pdf,
+            user_id=user.id,
+            content=user_message,
+            is_user_message=True,
+            created_at=datetime.now()
+        )
+        user_msg.save()
+        ai_msg = ChatMessage(
+            pdf=pdf,
+            user_id=user.id,
+            content=ai_response,
+            is_user_message=False,
+            created_at=datetime.now()
+        )
+        ai_msg.save()
+
+        return Response({
+            "user_message": ChatMessageSerializer(user_msg).data,
+            "ai_response": ChatMessageSerializer(ai_msg).data,
+            "credits_remaining": user.credits
+        }, status=status.HTTP_200_OK)

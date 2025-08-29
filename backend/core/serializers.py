@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Session, Pdf
+from .models import User, Session, Pdf, ChatMessage
 from django.contrib.auth import authenticate
 import uuid
 from datetime import datetime, timedelta
@@ -59,7 +59,16 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'credits']
 
 
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'content', 'is_user_message', 'created_at']
+
+
 class PdfSerializer(serializers.ModelSerializer):
+    chat_messages = ChatMessageSerializer(many=True, read_only=True)
+
     class Meta:
         model = Pdf
-        fields = ['id', 'file_name', 'file_url', 'uploaded_at']
+        fields = ['id', 'file_name', 'file_url',
+                  'uploaded_at', 'chat_messages']
