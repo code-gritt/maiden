@@ -3,13 +3,7 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
-import { Document, Page, pdfjs } from "react-pdf";
-// import "react-pdf/dist/Page/AnnotationLayer.css";
-// import "react-pdf/dist/Page/TextLayer.css";
 import DashboardLayout from "../DashboardLayout";
-
-// Set up pdfjs worker using the standard build
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 // Backend base URL from environment variable
 const BACKEND_BASE_URL =
@@ -35,13 +29,10 @@ const PdfViewPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const [pdf, setPdf] = useState<Pdf | null>(null);
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -80,16 +71,6 @@ const PdfViewPage = () => {
       console.error("Fetch PDF error:", err);
       setError("Failed to load PDF");
     }
-  };
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setPdfError(null);
-  };
-
-  const onDocumentLoadError = (error: Error) => {
-    console.error("PDF load error:", error);
-    setPdfError("Failed to load PDF document");
   };
 
   const handleChatSubmit = async (e: FormEvent) => {
@@ -138,39 +119,12 @@ const PdfViewPage = () => {
         <div className="bg-white shadow-md rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-4">{pdf.file_name}</h2>
           <div className="overflow-y-auto max-h-[80vh]">
-            <Document
-              file={pdf.file_url}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={onDocumentLoadError}
-              className="flex justify-center"
-            >
-              <Page pageNumber={pageNumber} />
-            </Document>
+            <iframe
+              src={pdf.file_url}
+              className="w-full h-[80vh]"
+              title={pdf.file_name}
+            />
           </div>
-          {numPages > 0 && (
-            <div className="flex justify-between mt-4">
-              <button
-                onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
-                disabled={pageNumber <= 1}
-                className="btn bg-blue-600 text-white disabled:bg-gray-300"
-              >
-                Previous
-              </button>
-              <p>
-                Page {pageNumber} of {numPages}
-              </p>
-              <button
-                onClick={() =>
-                  setPageNumber((prev) => Math.min(prev + 1, numPages))
-                }
-                disabled={pageNumber >= numPages}
-                className="btn bg-blue-600 text-white disabled:bg-gray-300"
-              >
-                Next
-              </button>
-            </div>
-          )}
-          {pdfError && <p className="text-red-500 mt-2">{pdfError}</p>}
           {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
 
