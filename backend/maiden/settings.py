@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv(
     "DJANGO_SECRET_KEY",
     "django-insecure-q!sk&q0je5baf*!!$3f&p9pa)eu!q20u#f&9%moj-go(3w0k3-"
 )
-DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"  # False in production
+DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
 # --------------------------------------
 # ALLOWED HOSTS
@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "social_django",  # Added for Google OAuth
     "core",
 ]
 
@@ -68,6 +69,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "social_django.context_processors.backends",  # Added for social auth
+                "social_django.context_processors.login_redirect",  # Added for social auth
             ],
         },
     },
@@ -110,6 +113,7 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTHENTICATION_BACKENDS = [
     "core.auth_backends.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
+    "social_core.backends.google.GoogleOAuth2",  # Added for Google OAuth
 ]
 
 # --------------------------------------
@@ -149,19 +153,22 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["GET", "POST", "OPTIONS"]
 CORS_ALLOW_HEADERS = ["Content-Type", "X-CSRFToken", "Cookie", "Authorization"]
+CORS_EXPOSE_HEADERS = ['Set-Cookie']
 
 # --------------------------------------
 # SESSION & COOKIE SETTINGS
 # --------------------------------------
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-
-# Only use secure cookies in production
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-
-# Cross-site cookie behavior
 SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
-
-# Redirect HTTP to HTTPS in production
 SECURE_SSL_REDIRECT = not DEBUG
+
+# --------------------------------------
+# GOOGLE OAUTH SETTINGS
+# --------------------------------------
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
+SOCIAL_AUTH_USER_MODEL = "core.User"
