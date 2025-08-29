@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import DashboardLayout from "../DashboardLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
-// Dynamically import PDF Viewer (client-side only)
+// Dynamically import PdfViewer to prevent SSR issues
 const PDFViewer = dynamic(() => import("../PdfViewer"), { ssr: false });
 
 interface ChatMessage {
@@ -100,14 +100,14 @@ const PdfViewPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="container mx-auto py-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: PDF Viewer */}
+        {/* PDF Viewer */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-4">{pdf.file_name}</h2>
           <PDFViewer fileUrl={pdf.file_url} />
           {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
 
-        {/* Right Column: Chat */}
+        {/* Chat Section */}
         <div className="bg-white shadow-md rounded-lg p-4 flex flex-col">
           <h2 className="text-xl font-semibold mb-4">Chat with PDF</h2>
           <div className="flex-1 overflow-y-auto max-h-[70vh] mb-4">
