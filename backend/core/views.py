@@ -234,27 +234,21 @@ class PdfDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pdf_id):
-        session_token = request.COOKIES.get("session_token")
-        if not session_token:
-            logger.warning("PDF detail fetch attempted without session token")
-            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        try:
-            session = Session.objects.get(
-                token=session_token, expires_at__gt=datetime.now())
-            user = session.user
-        except Session.DoesNotExist:
-            logger.warning(
-                "Invalid or expired session token: %s", session_token)
-            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+        user, error_response = get_authenticated_user(request)
+        if error_response:
+            return error_response
 
         try:
             pdf = Pdf.objects.get(id=pdf_id, user=user)
-            serializer = PdfSerializer(pdf)
-            return Response(serializer.data, status=status.HTTP_200_OK)
         except Pdf.DoesNotExist:
-            logger.warning("PDF %s not found for user %s", pdf_id, user.id)
             return Response({"message": "PDF not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = PdfSerializer(pdf)
+        return Response(serializer.data)
+
+# --------------------------
+# Chat View
+# --------------------------
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -262,46 +256,29 @@ class ChatView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, pdf_id):
-        session_token = request.COOKIES.get("session_token")
-        if not session_token:
-            logger.warning("Chat attempt without session token")
-            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        try:
-            session = Session.objects.get(
-                token=session_token, expires_at__gt=datetime.now())
-            user = session.user
-        except Session.DoesNotExist:
-            logger.warning(
-                "Invalid or expired session token: %s", session_token)
-            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+        user, error_response = get_authenticated_user(request)
+        if error_response:
+            return error_response
 
         try:
             pdf = Pdf.objects.get(id=pdf_id, user=user)
         except Pdf.DoesNotExist:
-            logger.warning("PDF %s not found for user %s", pdf_id, user.id)
             return Response({"message": "PDF not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check credits
         if user.credits < 2:
-            logger.warning("User %s has insufficient credits: %s",
-                           user.id, user.credits)
             return Response({"message": "Insufficient credits. Upgrade to Pro."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Get user message
         user_message = request.data.get("message")
         if not user_message:
-            logger.error("No message provided in chat request")
             return Response({"message": "No message provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract PDF text (assumes file is accessible via default_storage)
+        # Extract PDF text
         try:
             file_path = default_storage.path(pdf.file_url.lstrip('/'))
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                pdf_text = ""
-                for page in pdf_reader.pages:
-                    pdf_text += page.extract_text() or ""
+            with open(file_path, 'rb') as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                pdf_text = "".join(page.extract_text()
+                                   or "" for page in pdf_reader.pages)
         except Exception as e:
             logger.error("Failed to extract PDF text: %s", str(e))
             return Response({"message": "Failed to process PDF"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -309,19 +286,11 @@ class ChatView(APIView):
         # Call Gemini API
         try:
             gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+            payload = {"contents": [
+                {"parts": [{"text": f"Context: {pdf_text}\n\nUser question: {user_message}"}]}]}
             headers = {"Content-Type": "application/json"}
-            payload = {
-                "contents": [{
-                    "parts": [{
-                        "text": f"Context: {pdf_text}\n\nUser question: {user_message}"
-                    }]
-                }]
-            }
             response = requests.post(
-                f"{gemini_url}?key={settings.GOOGLE_GEMINI_API_KEY}",
-                json=payload,
-                headers=headers
-            )
+                f"{gemini_url}?key={settings.GOOGLE_GEMINI_API_KEY}", json=payload, headers=headers)
             response.raise_for_status()
             ai_response = response.json(
             )['candidates'][0]['content']['parts'][0]['text']
@@ -329,32 +298,32 @@ class ChatView(APIView):
             logger.error("Gemini API error: %s", str(e))
             return Response({"message": "Failed to generate response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Deduct credits
+        # Deduct credits and save chat messages
         user.credits -= 2
         user.save()
-        logger.info("Deducted 2 credits for user %s, remaining: %s",
-                    user.id, user.credits)
-
-        # Save messages
-        user_msg = ChatMessage(
-            pdf=pdf,
-            user_id=user.id,
-            content=user_message,
-            is_user_message=True,
-            created_at=datetime.now()
-        )
+        user_msg = ChatMessage(pdf=pdf, user_id=user.id, content=user_message,
+                               is_user_message=True, created_at=datetime.now())
+        ai_msg = ChatMessage(pdf=pdf, user_id=user.id, content=ai_response,
+                             is_user_message=False, created_at=datetime.now())
         user_msg.save()
-        ai_msg = ChatMessage(
-            pdf=pdf,
-            user_id=user.id,
-            content=ai_response,
-            is_user_message=False,
-            created_at=datetime.now()
-        )
         ai_msg.save()
 
         return Response({
             "user_message": ChatMessageSerializer(user_msg).data,
             "ai_response": ChatMessageSerializer(ai_msg).data,
             "credits_remaining": user.credits
-        }, status=status.HTTP_200_OK)
+        })
+
+
+def get_authenticated_user(request):
+    """Fetch the user from the session token."""
+    token = request.COOKIES.get("session_token")
+    if not token:
+        return None, Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        session = Session.objects.get(
+            token=token, expires_at__gt=datetime.now())
+        return session.user, None
+    except Session.DoesNotExist:
+        return None, Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)

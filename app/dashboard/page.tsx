@@ -88,6 +88,10 @@ const DashboardPage = () => {
     }
   };
 
+  const handleCardClick = (pdfId: string) => {
+    router.push(`/dashboard/${pdfId}`);
+  };
+
   if (!user) {
     return null; // Render nothing while checking auth
   }
@@ -133,7 +137,8 @@ const DashboardPage = () => {
             {pdfs.map((pdf) => (
               <div
                 key={pdf.id}
-                className="bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition"
+                className="bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition cursor-pointer"
+                onClick={() => handleCardClick(pdf.id)}
               >
                 <h3 className="text-lg font-semibold truncate">
                   {pdf.file_name}
@@ -141,12 +146,6 @@ const DashboardPage = () => {
                 <p className="text-sm text-gray-500">
                   Uploaded: {new Date(pdf.uploaded_at).toLocaleString()}
                 </p>
-                <a
-                  href={pdf.file_url}
-                  className="text-blue-600 hover:underline mt-2 inline-block"
-                >
-                  View PDF
-                </a>
               </div>
             ))}
           </div>
