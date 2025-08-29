@@ -4,13 +4,13 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .serializers import RegisterSerializer, LoginSerializer
-from .models import Session, User
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, PdfSerializer
+from .models import Session, User, Pdf
+import uuid
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import login
 from social_django.utils import psa
-import uuid
-from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -144,3 +144,83 @@ def google_callback(request, backend):
     except Exception as e:
         logger.exception("Google OAuth error")
         return Response({"message": "Authentication error"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PdfUploadView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        session_token = request.COOKIES.get("session_token")
+        if not session_token:
+            logger.warning("PDF upload attempted without session token")
+            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            session = Session.objects.get(
+                token=session_token, expires_at__gt=datetime.now())
+            user = session.user
+        except Session.DoesNotExist:
+            logger.warning(
+                "Invalid or expired session token: %s", session_token)
+            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Check PDF limit (5 for free tier)
+        pdf_count = Pdf.objects.filter(user=user).count()
+        if pdf_count >= 5 and not user.subscription:
+            logger.warning("User %s exceeded free tier PDF limit", user.id)
+            return Response({"message": "Free tier limit reached (5 PDFs). Upgrade to Pro."}, status=status.HTTP_403_FORBIDDEN)
+
+        file = request.FILES.get("file")
+        if not file:
+            logger.error("No file provided in PDF upload")
+            return Response({"message": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not file.name.endswith(".pdf"):
+            logger.error("Invalid file type for upload: %s", file.name)
+            return Response({"message": "Only PDF files are allowed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file size (10 MB = 10 * 1024 * 1024 bytes)
+        if file.size > 10 * 1024 * 1024:
+            logger.error("File too large: %s bytes", file.size)
+            return Response({"message": "File size exceeds 10 MB limit"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Simulate file storage (e.g., save to staticfiles or cloud storage)
+        # For simplicity, store file name and size; in production, use cloud storage
+        file_url = f"/uploads/{uuid.uuid4()}_{file.name}"
+        pdf = Pdf(
+            user=user,
+            file_name=file.name,
+            file_size=file.size,
+            file_url=file_url,
+            uploaded_at=datetime.now()
+        )
+        pdf.save()
+        logger.info("PDF uploaded: %s for user %s", file.name, user.id)
+
+        serializer = PdfSerializer(pdf)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PdfListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        session_token = request.COOKIES.get("session_token")
+        if not session_token:
+            logger.warning("PDF list fetch attempted without session token")
+            return Response({"message": "No session token"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            session = Session.objects.get(
+                token=session_token, expires_at__gt=datetime.now())
+            user = session.user
+        except Session.DoesNotExist:
+            logger.warning(
+                "Invalid or expired session token: %s", session_token)
+            return Response({"message": "Invalid or expired session"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        pdfs = Pdf.objects.filter(user=user).order_by('-uploaded_at')
+        serializer = PdfSerializer(pdfs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -1,6 +1,5 @@
-# core/serializers.py
 from rest_framework import serializers
-from .models import User, Session
+from .models import User, Session, Pdf
 from django.contrib.auth import authenticate
 import uuid
 from datetime import datetime, timedelta
@@ -31,8 +30,6 @@ class LoginSerializer(serializers.Serializer):
         email = data.get('email')
         password = data.get('password')
         print("Validating login for email:", email)
-
-        # Check if user exists
         try:
             user = User.objects.get(email=email)
             print("User found:", user.username)
@@ -40,14 +37,11 @@ class LoginSerializer(serializers.Serializer):
             print("User not found for email:", email)
             raise serializers.ValidationError(
                 {"non_field_errors": ["Invalid credentials: User not found"]})
-
-        # Authenticate using email and password
         user = authenticate(email=email, password=password)
         if not user:
             print("Authentication failed for email:", email)
             raise serializers.ValidationError(
                 {"non_field_errors": ["Invalid credentials: Incorrect password"]})
-
         print("Authentication successful for user:", user.username)
         data['user'] = user
         return data
@@ -63,3 +57,9 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['username', 'email', 'credits']
+
+
+class PdfSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pdf
+        fields = ['id', 'file_name', 'file_url', 'uploaded_at']

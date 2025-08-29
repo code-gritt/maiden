@@ -6,6 +6,8 @@ from .views import (
     UserView,
     GoogleLoginView,
     google_callback,
+    PdfUploadView,
+    PdfListView,
 )
 
 urlpatterns = [
@@ -14,6 +16,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('profile/', UserView.as_view(), name='profile'),
     path('google/login/', GoogleLoginView.as_view(), name='google_login'),
-    path('google/callback/', google_callback,
-         name='google_callback'),
+    path('google/callback/', google_callback, name='google_callback'),
+    path('pdf/upload/', PdfUploadView.as_view(), name='pdf_upload'),
+    path('pdf/list/', PdfListView.as_view(), name='pdf_list'),
 ]
