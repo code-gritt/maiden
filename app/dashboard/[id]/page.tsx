@@ -2,12 +2,19 @@
 
 import React, { useState, useEffect, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useAuthStore } from "@/store/useAuthStore";
 import dynamic from "next/dynamic";
 import DashboardLayout from "../DashboardLayout";
+import { useAuthStore } from "@/store/useAuthStore";
 
 // Dynamically import PDF Viewer (client-side only)
 const PDFViewer = dynamic(() => import("../PdfViewer"), { ssr: false });
+
+interface ChatMessage {
+  id: string;
+  content: string;
+  is_user_message: boolean;
+  created_at: string;
+}
 
 interface Pdf {
   id: string;
@@ -17,17 +24,11 @@ interface Pdf {
   chat_messages: ChatMessage[];
 }
 
-interface ChatMessage {
-  id: string;
-  content: string;
-  is_user_message: boolean;
-  created_at: string;
-}
-
-const PdfViewPage = () => {
+const PdfViewPage: React.FC = () => {
   const { user, fetchUser } = useAuthStore();
   const router = useRouter();
   const { id } = useParams();
+
   const [pdf, setPdf] = useState<Pdf | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
@@ -76,12 +77,15 @@ const PdfViewPage = () => {
           body: JSON.stringify({ message }),
         }
       );
+
       const data = await res.json();
+
       if (!res.ok) {
         if (res.status === 403) router.push("/pricing");
         else throw new Error(data.message || "Chat failed");
       }
-      setChatMessages([...chatMessages, data.user_message, data.ai_response]);
+
+      setChatMessages((prev) => [...prev, data.user_message, data.ai_response]);
       setMessage("");
       fetchUser(); // refresh credits
     } catch (err: any) {
@@ -99,7 +103,7 @@ const PdfViewPage = () => {
         {/* Left Column: PDF Viewer */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-4">{pdf.file_name}</h2>
-          <PDFViewer file={pdf.file_url} />
+          <PDFViewer fileUrl={pdf.file_url} />
           {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
 
@@ -127,6 +131,7 @@ const PdfViewPage = () => {
               <p className="text-gray-500">Start chatting about your PDF!</p>
             )}
           </div>
+
           <form onSubmit={handleChatSubmit} className="flex gap-2">
             <input
               type="text"
@@ -144,6 +149,7 @@ const PdfViewPage = () => {
               {loading ? "Sending..." : "Send"}
             </button>
           </form>
+
           <p className="text-sm text-gray-500 mt-2">
             {user.credits} credits remaining (2 credits per message)
           </p>
