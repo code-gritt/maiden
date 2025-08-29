@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
+import { GoogleLogin } from "@react-oauth/google";
 
 export default function SignIn() {
   const router = useRouter();
@@ -28,6 +29,30 @@ export default function SignIn() {
     setLoading(false);
   };
 
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        "https://maiden-backend.onrender.com/api/auth/google/login/",
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        window.location.href = data.auth_url; // Redirect to Google OAuth
+      } else {
+        setError("Failed to initiate Google login");
+      }
+    } catch (err) {
+      setError("Server error during Google login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="max-w-md w-full space-y-8">
@@ -36,11 +61,10 @@ export default function SignIn() {
         </div>
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading && (
-          <div className="fixed inset-0  bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
           </div>
         )}
-
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -86,6 +110,14 @@ export default function SignIn() {
             </button>
           </div>
         </form>
+        <div className="mt-4">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError("Google login failed")}
+            text="signin_with"
+            width="400"
+          />
+        </div>
         <div className="mt-6 text-center">
           <Link
             className="text-sm text-gray-700 underline hover:no-underline"

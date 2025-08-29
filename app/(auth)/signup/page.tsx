@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GoogleLogin } from "@react-oauth/google";
 
 export default function SignUp() {
   const [loading, setLoading] = useState(false);
@@ -48,6 +49,30 @@ export default function SignUp() {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        "https://maiden-backend.onrender.com/api/auth/google/login/",
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        window.location.href = data.auth_url; // Redirect to Google OAuth
+      } else {
+        setError("Failed to initiate Google registration");
+      }
+    } catch (err) {
+      setError("Server error during Google registration");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="max-w-md w-full space-y-8">
@@ -56,11 +81,10 @@ export default function SignUp() {
         </div>
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading && (
-          <div className="fixed inset-0  bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
           </div>
         )}
-
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -123,6 +147,14 @@ export default function SignUp() {
             </button>
           </div>
         </form>
+        <div className="mt-4">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError("Google registration failed")}
+            text="signup_with"
+            width="400"
+          />
+        </div>
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             By signing up, you agree to the{" "}
