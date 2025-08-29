@@ -36,10 +36,11 @@ export default function SignIn() {
         </div>
         {error && <p className="text-red-500 text-center">{error}</p>}
         {loading && (
-          <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="fixed inset-0  bg-opacity-10 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600"></div>
           </div>
         )}
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
