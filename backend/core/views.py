@@ -190,7 +190,7 @@ class PdfUploadView(APIView):
 
         # Simulate file storage (e.g., save to staticfiles or cloud storage)
         # For simplicity, store file name and size; in production, use cloud storage
-        file_url = f"/uploads/{uuid.uuid4()}_{file.name}"
+        file_url = f"/upload/{uuid.uuid4()}_{file.name}"
         pdf = Pdf(
             user=user,
             file_name=file.name,
