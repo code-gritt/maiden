@@ -4,12 +4,16 @@ import React, { useState, useEffect, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/esm/Page/AnnotationLayer.css";
-import "react-pdf/dist/esm/Page/TextLayer.css";
+// import "react-pdf/dist/Page/AnnotationLayer.css";
+// import "react-pdf/dist/Page/TextLayer.css";
 import DashboardLayout from "../DashboardLayout";
 
-// Set up pdfjs worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Set up pdfjs worker using the standard build
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// Backend base URL from environment variable
+const BACKEND_BASE_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 interface Pdf {
   id: string;
@@ -36,6 +40,7 @@ const PdfViewPage = () => {
   const [message, setMessage] = useState<string>("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -65,7 +70,11 @@ const PdfViewPage = () => {
         throw new Error("Failed to fetch PDF");
       }
       const data = await response.json();
-      setPdf(data);
+      // Prepend backend base URL to file_url
+      setPdf({
+        ...data,
+        file_url: `${BACKEND_BASE_URL}${data.file_url}`,
+      });
       setChatMessages(data.chat_messages || []);
     } catch (err) {
       console.error("Fetch PDF error:", err);
@@ -75,6 +84,12 @@ const PdfViewPage = () => {
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
+    setPdfError(null);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error("PDF load error:", error);
+    setPdfError("Failed to load PDF document");
   };
 
   const handleChatSubmit = async (e: FormEvent) => {
@@ -126,32 +141,36 @@ const PdfViewPage = () => {
             <Document
               file={pdf.file_url}
               onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
               className="flex justify-center"
             >
               <Page pageNumber={pageNumber} />
             </Document>
           </div>
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
-              disabled={pageNumber <= 1}
-              className="btn bg-blue-600 text-white disabled:bg-gray-300"
-            >
-              Previous
-            </button>
-            <p>
-              Page {pageNumber} of {numPages}
-            </p>
-            <button
-              onClick={() =>
-                setPageNumber((prev) => Math.min(prev + 1, numPages))
-              }
-              disabled={pageNumber >= numPages}
-              className="btn bg-blue-600 text-white disabled:bg-gray-300"
-            >
-              Next
-            </button>
-          </div>
+          {numPages > 0 && (
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
+                disabled={pageNumber <= 1}
+                className="btn bg-blue-600 text-white disabled:bg-gray-300"
+              >
+                Previous
+              </button>
+              <p>
+                Page {pageNumber} of {numPages}
+              </p>
+              <button
+                onClick={() =>
+                  setPageNumber((prev) => Math.min(prev + 1, numPages))
+                }
+                disabled={pageNumber >= numPages}
+                className="btn bg-blue-600 text-white disabled:bg-gray-300"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          {pdfError && <p className="text-red-500 mt-2">{pdfError}</p>}
           {error && <p className="text-red-500 mt-2">{error}</p>}
         </div>
 
