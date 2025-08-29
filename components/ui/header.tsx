@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import Logo from "./logo";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export default function Header() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, fetchUser } = useAuthStore();
+
+  useEffect(() => {
+    fetchUser(); // Fetch user on mount
+  }, [fetchUser]);
 
   const initials = user
-    ? user.name
+    ? user.username
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -19,12 +24,9 @@ export default function Header() {
     <header className="fixed top-2 z-30 w-full md:top-6">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="relative flex h-14 items-center justify-between gap-3 rounded-2xl bg-white/90 px-3 shadow-lg">
-          {/* Branding */}
           <div className="flex flex-1 items-center">
             <Logo />
           </div>
-
-          {/* Right side */}
           <ul className="flex flex-1 items-center justify-end gap-3">
             {!user ? (
               <>

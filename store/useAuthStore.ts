@@ -1,67 +1,101 @@
 "use client";
+
 import { create } from "zustand";
 
 interface User {
-  id: number;
-  name: string;
+  username: string;
   email: string;
   credits: number;
 }
 
 interface AuthState {
   user: User | null;
-  token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  fetchProfile: () => Promise<void>;
+  logout: () => Promise<void>;
+  fetchUser: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
-
-  login: async (email, password) => {
+  login: async (email: string, password: string) => {
     try {
-      const res = await fetch(
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(
         "https://maiden-backend.onrender.com/api/auth/login/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ email, password }),
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
-      if (!res.ok) return false;
+      if (!response.ok) {
+        const data = await response.json();
+        console.error("Login failed:", data.message);
+        return false;
+      }
 
-      const data = await res.json();
-      set({ token: data.token });
-      await get().fetchProfile();
+      console.log("Login successful");
+      await useAuthStore.getState().fetchUser();
       return true;
-    } catch (err) {
-      console.error("Login failed", err);
+    } catch (error) {
+      console.error("Login error:", error);
       return false;
     }
   },
-
-  fetchProfile: async () => {
-    const { token } = get();
-    if (!token) return;
-
+  logout: async () => {
     try {
-      const res = await fetch(
-        "https://maiden-backend.onrender.com/api/auth/profile/",
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(
+        "https://maiden-backend.onrender.com/api/auth/logout/",
         {
-          headers: { Authorization: `Bearer ${token}` },
+          method: "POST",
+          credentials: "include",
+          signal: controller.signal,
         }
       );
-      if (res.ok) {
-        const data = await res.json();
-        set({ user: data });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        console.log("Logout successful");
+        set({ user: null });
+      } else {
+        console.error("Logout failed:", response.statusText);
       }
-    } catch (err) {
-      console.error("Failed to fetch profile", err);
+    } catch (error) {
+      console.error("Logout error:", error);
     }
   },
+  fetchUser: async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(
+        "https://maiden-backend.onrender.com/api/auth/user/",
+        {
+          method: "GET",
+          credentials: "include",
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
 
-  logout: () => set({ user: null, token: null }),
+      if (!response.ok) {
+        console.error("Fetch user failed:", response.statusText);
+        set({ user: null });
+        return;
+      }
+
+      const user = await response.json();
+      console.log("User fetched:", user);
+      set({ user });
+    } catch (error) {
+      console.error("Fetch user error:", error);
+      set({ user: null });
+    }
+  },
 }));
