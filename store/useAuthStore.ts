@@ -75,7 +75,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(
-        "https://maiden-backend.onrender.com/api/auth/user/",
+        "https://maiden-backend.onrender.com/api/auth/profile/",
         {
           method: "GET",
           credentials: "include",
