@@ -46,9 +46,25 @@ export default function Header() {
                     Register
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    href="/pricing"
+                    className="btn-sm bg-gray-800 text-gray-200 shadow-sm hover:bg-gray-900"
+                  >
+                    Pricing
+                  </Link>
+                </li>
               </>
             ) : (
               <>
+                <li>
+                  <Link
+                    href="/pricing"
+                    className="btn-sm bg-gray-800 text-gray-200 shadow-sm hover:bg-gray-900"
+                  >
+                    Pricing
+                  </Link>
+                </li>
                 <li>
                   <Link
                     href="/dashboard"
